@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>เปาป๊อป</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mali:wght@500;700&family=Prompt:wght@500;600&display=swap">
+<style>
+/* Layout: one centered stage, big counter above the character, small stat row below */
+:root {
+  --bg: #d6efe8;
+  --ink: #0f3433;
+  --bun: #fffaf0;
+  --bun-shade: #f1e3c9;
+  --blush: #ff8fa3;
+  --pop: #ffc83d;
+  --panel: #c3e5dc;
+  --font-display: "Mali", "Noto Sans Thai", "Tahoma", sans-serif;
+  --font-body: "Prompt", "Noto Sans Thai", "Tahoma", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e2523; --ink: #e4f6f1; --bun: #fffaf0; --bun-shade: #e6d5b5;
+    --blush: #ff8fa3; --pop: #ffc83d; --panel: #173836; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e2523; --ink: #e4f6f1; --bun: #fffaf0; --bun-shade: #e6d5b5;
+  --blush: #ff8fa3; --pop: #ffc83d; --panel: #173836; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overflow-x: hidden;
+}
+.app {
+  max-width: 560px; margin: 0 auto; height: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+header { width: 100%; display: flex; justify-content: space-between; align-items: center; }
+h1 { font-family: var(--font-display); font-size: 1.15rem; margin: 0; letter-spacing: .02em; }
+.mute {
+  font: inherit; font-size: .85rem; color: var(--ink); background: var(--panel);
+  border: 0; border-radius: 999px; padding: 6px 14px; cursor: pointer;
+}
+.mute:focus-visible, .stage:focus-visible { outline: 3px solid var(--pop); outline-offset: 3px; }
+
+.score { text-align: center; line-height: 1; }
+.count {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(3.6rem, 18vw, 6.5rem);
+  font-variant-numeric: tabular-nums; margin: 0;
+}
+.label { font-size: .8rem; letter-spacing: .12em; opacity: .7; margin-top: 4px; }
+.title { font-family: var(--font-display); font-size: 1rem; min-height: 1.5em; margin-top: 8px; }
+
+.stage {
+  position: relative; flex: 1 1 auto; min-height: 0; width: 100%;
+  display: grid; place-items: center; cursor: pointer; border-radius: 28px;
+}
+.bao { width: min(78vw, 360px); max-height: 100%; height: auto; overflow: visible;
+  transform-origin: 50% 92%; transition: transform .09s ease-out; }
+.stage.down .bao { transform: scale(1.06, .92); }
+.bao .open { display: none; }
+.stage.down .bao .open { display: inline; }
+.stage.down .bao .shut { display: none; }
+.steam { opacity: .55; }
+@media (prefers-reduced-motion: no-preference) {
+  .bao.flash { animation: skinflash .7s ease-out; }
+}
+@keyframes skinflash { 0% { transform: scale(.7) rotate(-8deg); filter: brightness(1.6) } 60% { transform: scale(1.12) rotate(4deg) } 100% { transform: none; filter: none } }
+@media (prefers-reduced-motion: no-preference) {
+  .steam path { animation: rise 2.6s ease-in-out infinite; }
+  .steam path:nth-child(2) { animation-delay: .8s; }
+  .steam path:nth-child(3) { animation-delay: 1.6s; }
+}
+@keyframes rise { 0%,100% { transform: translateY(0); opacity: .2 } 50% { transform: translateY(-8px); opacity: .8 } }
+
+.plus {
+  position: absolute; pointer-events: none; font-family: var(--font-display); font-weight: 700;
+  color: var(--pop); font-size: 1.6rem; text-shadow: 0 2px 0 var(--ink);
+  animation: float .7s ease-out forwards;
+}
+@keyframes float { to { transform: translateY(-70px); opacity: 0 } }
+
+.stats { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--panel); border-radius: 14px; padding: 8px 6px; text-align: center; min-width: 0; }
+.stat b { display: block; font-family: var(--font-display); font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.stat span { font-size: .72rem; opacity: .75; }
+.hint { font-size: .75rem; opacity: .6; margin: 0; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>เปาป๊อป</h1>
+    <button class="mute" id="mute" type="button" aria-pressed="false">เสียง: เปิด</button>
+  </header>
+
+  <div class="score">
+    <p class="count" id="count" aria-live="off">0</p>
+    <div class="label">ป๊อปแล้ว</div>
+    <div class="title" id="title">ซาลาเปาลูกใหม่ ยังไม่โดนกด</div>
+  </div>
+
+  <div class="stage" id="stage" tabindex="0" role="button" aria-label="กดซาลาเปาเพื่อป๊อป">
+    <svg class="bao" id="bao" viewBox="0 0 300 280" aria-hidden="true">
+      <defs>
+        <clipPath id="bodyClip"><path d="M150 52 C 214 52 268 104 268 168 C 268 226 224 258 150 258 C 76 258 32 226 32 168 C 32 104 86 52 150 52 Z"/></clipPath>
+        <g id="patDefs"></g>
+      </defs>
+      <g class="steam" fill="none" stroke="var(--ink)" stroke-width="5" stroke-linecap="round">
+        <path d="M110 40 q-10 -14 0 -26"/><path d="M150 36 q-10 -14 0 -26"/><path d="M190 40 q-10 -14 0 -26"/>
+      </g>
+      <ellipse cx="150" cy="262" rx="104" ry="11" fill="var(--ink)" opacity=".15"/>
+      <!-- body -->
+      <path d="M150 52 C 214 52 268 104 268 168 C 268 226 224 258 150 258 C 76 258 32 226 32 168 C 32 104 86 52 150 52 Z"
+        fill="var(--bun)" stroke="var(--ink)" stroke-width="6"/>
+      <g clip-path="url(#bodyClip)"><rect id="patRect" x="0" y="0" width="300" height="280" fill="none" opacity=".9"/></g>
+      <path d="M52 214 C 80 244 120 250 150 250 C 190 250 230 242 252 212" fill="none" stroke="var(--bun-shade)" stroke-width="10" stroke-linecap="round" opacity=".8"/>
+      <!-- pleated top -->
+      <g fill="none" stroke="var(--ink)" stroke-width="5" stroke-linecap="round">
+        <path d="M150 52 q-6 -12 0 -20 q8 8 0 20"/>
+        <path d="M150 54 q-26 12 -48 34"/><path d="M150 54 q26 12 48 34"/>
+        <path d="M150 54 q-8 18 -14 42"/><path d="M150 54 q8 18 14 42"/>
+      </g>
+      <!-- cheeks -->
+      <ellipse cx="72" cy="178" rx="20" ry="13" fill="var(--blush)" opacity=".85"/>
+      <ellipse cx="228" cy="178" rx="20" ry="13" fill="var(--blush)" opacity=".85"/>
+      <!-- face: shut -->
+      <g class="shut" fill="none" stroke="var(--ink)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M96 150 q14 -16 28 0"/><path d="M176 150 q14 -16 28 0"/>
+        <path d="M130 184 q20 18 40 0"/>
+      </g>
+      <!-- face: open -->
+      <g class="open">
+        <circle cx="110" cy="148" r="12" fill="var(--ink)"/><circle cx="190" cy="148" r="12" fill="var(--ink)"/>
+        <circle cx="114" cy="143" r="4" fill="#fff"/><circle cx="194" cy="143" r="4" fill="#fff"/>
+        <ellipse cx="150" cy="198" rx="30" ry="34" fill="var(--ink)"/>
+        <ellipse cx="150" cy="216" rx="18" ry="12" fill="var(--blush)"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b id="cps">0</b><span>ครั้ง/วินาที</span></div>
+    <div class="stat"><b id="best">0</b><span>ครั้ง/วิ สูงสุด</span></div>
+    <div class="stat"><b id="record">1</b><span>สกินที่</span></div>
+  </div>
+  <p class="hint">แตะที่ซาลาเปา หรือกดเว้นวรรค ใช้หลายนิ้วได้</p>
+</div>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var countEl = document.getElementById('count');
+  var titleEl = document.getElementById('title');
+  var cpsEl = document.getElementById('cps');
+  var bestEl = document.getElementById('best');
+  var recordEl = document.getElementById('record');
+  var muteBtn = document.getElementById('mute');
+
+  var count = 0, best = 0, tier = 0, muted = false, flashUntil = 0;
+  var baoEl = document.getElementById('bao');
+  var patDefs = document.getElementById('patDefs');
+  var patRect = document.getElementById('patRect');
+  var stamps = [];
+  var downPointers = 0;
+
+  function load(k) { try { return parseInt(localStorage.getItem(k), 10) || 0; } catch (e) { return 0; } }
+  function save(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} }
+  best = load('bao-best'); count = load('bao-count');
+  bestEl.textContent = best;
+  countEl.textContent = count.toLocaleString('th-TH');
+
+  function hsl(h, s, l) {
+    return 'hsl(' + Math.round(((h % 360) + 360) % 360) + ',' + Math.round(s) + '%,' + Math.round(l) + '%)';
+  }
+  function starPts(s) {
+    var pts = [], cx = s / 2, cy = s / 2;
+    for (var i = 0; i < 10; i++) {
+      var r = i % 2 ? s * 0.12 : s * 0.32, a = -Math.PI / 2 + i * Math.PI / 5;
+      pts.push((cx + r * Math.cos(a)).toFixed(1) + ',' + (cy + r * Math.sin(a)).toFixed(1));
+    }
+    return pts.join(' ');
+  }
+  var tile = function (s, inner, extra) {
+    return '<pattern id="pt" width="' + s + '" height="' + s + '" patternUnits="userSpaceOnUse"' + (extra || '') + '>' + inner + '</pattern>';
+  };
+  // Each pattern: (main color, second color, tile size, hue) -> SVG defs. All paint through url(#pt).
+  var patterns = [
+    function (a, b, s) { return tile(s, '<circle cx="' + s / 2 + '" cy="' + s / 2 + '" r="' + s * 0.2 + '" fill="' + a + '"/>'); },
+    function (a, b, s) { return tile(s, '<rect width="' + s / 2 + '" height="' + s + '" fill="' + a + '"/>', ' patternTransform="rotate(45)"'); },
+    function (a, b, s) { return tile(s, '<rect width="' + s / 2 + '" height="' + s / 2 + '" fill="' + a + '"/><rect x="' + s / 2 + '" y="' + s / 2 + '" width="' + s / 2 + '" height="' + s / 2 + '" fill="' + a + '"/>'); },
+    function (a, b, s) { return tile(s, '<path d="M0 ' + s * 0.75 + ' L' + s / 4 + ' ' + s * 0.25 + ' L' + s / 2 + ' ' + s * 0.75 + ' L' + s * 0.75 + ' ' + s * 0.25 + ' L' + s + ' ' + s * 0.75 + '" fill="none" stroke="' + a + '" stroke-width="' + s * 0.12 + '" stroke-linecap="round"/>'); },
+    function (a, b, s) { return tile(s, '<path d="M0 ' + s / 2 + ' Q' + s / 4 + ' 0 ' + s / 2 + ' ' + s / 2 + ' T' + s + ' ' + s / 2 + '" fill="none" stroke="' + a + '" stroke-width="' + s * 0.12 + '"/>'); },
+    function (a, b, s) { return tile(s, '<polygon points="' + starPts(s) + '" fill="' + a + '"/>'); },
+    function (a, b, s) { return tile(s, '<path transform="translate(' + s / 2 + ' ' + s * 0.2 + ') scale(' + s * 0.5 + ')" d="M0 .3C0 -.1 -.5 -.1 -.5 .25C-.5 .6 0 .85 0 1C0 .85 .5 .6 .5 .25C.5 -.1 0 -.1 0 .3Z" fill="' + a + '"/>'); },
+    function (a, b, s) { return tile(s, '<path d="M0 0H' + s + 'M0 0V' + s + '" stroke="' + a + '" stroke-width="' + s * 0.1 + '" fill="none"/>'); },
+    function (a, b, s) { var r = s / 2, o = ''; [[0, 0], [s, 0], [0, s], [s, s], [s / 2, s / 2]].forEach(function (p) { o += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + r + '" fill="none" stroke="' + a + '" stroke-width="' + s * 0.07 + '"/>'; }); return tile(s, o); },
+    function (a, b) { return '<linearGradient id="pt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + a + '"/><stop offset="1" stop-color="' + b + '"/></linearGradient>'; },
+    function (a, b) { return '<radialGradient id="pt" cx=".5" cy=".6" r=".16" spreadMethod="repeat"><stop offset="0" stop-color="' + a + '"/><stop offset=".5" stop-color="' + b + '"/><stop offset="1" stop-color="' + a + '"/></radialGradient>'; },
+    function (a, b, s, h) { var st = ''; for (var i = 0; i < 7; i++) st += '<stop offset="' + (i / 6) + '" stop-color="' + hsl(h + i * 60, 85, 62) + '"/>'; return '<linearGradient id="pt" x1="0" y1="0" x2="1" y2="0">' + st + '</linearGradient>'; }
+  ];
+
+  function applySkin(t, quiet) {
+    if (t === 0) {
+      baoEl.style.removeProperty('--bun');
+      baoEl.style.removeProperty('--bun-shade');
+      patDefs.innerHTML = '';
+      patRect.setAttribute('fill', 'none');
+    } else {
+      var h = (t * 137.508) % 360;
+      var sat = 55 + (t * 17) % 35;
+      var lit = 68 + (t * 11) % 22;
+      var size = 24 + (t * 7) % 22;
+      var a = hsl(h + (t % 2 ? 180 : 40), sat, lit - 22);
+      var b = hsl(h + 90, sat, lit + 6);
+      baoEl.style.setProperty('--bun', hsl(h, sat, lit));
+      baoEl.style.setProperty('--bun-shade', hsl(h, sat, lit - 14));
+      var fn = patterns[(t - 1) % patterns.length];
+      patDefs.innerHTML = fn(a, b, size, h);
+      patRect.setAttribute('fill', 'url(#pt)');
+    }
+    recordEl.textContent = t + 1;
+    if (!quiet) {
+      baoEl.classList.remove('flash');
+      void baoEl.getBoundingClientRect();
+      baoEl.classList.add('flash');
+      titleEl.textContent = 'สกินใหม่! ลายที่ ' + (t + 1);
+      flashUntil = performance.now() + 3000;
+    }
+  }
+  tier = Math.floor(count / 1000);
+  applySkin(tier, true);
+
+  var titles = [
+    [0, 'ซาลาเปาลูกใหม่ ยังไม่โดนกด'], [10, 'เริ่มอุ่นเครื่อง'], [50, 'ไอน้ำเริ่มขึ้น'],
+    [100, 'ร้อนๆ ไส้แน่น'], [250, 'ซาลาเปาเริ่มมึน'], [500, 'นิ้วคุณไวมาก'],
+    [1000, 'หนึ่งพันป๊อป เก่งมาก'], [2500, 'ตำนานแห่งลังถึง']
+  ];
+  function setTitle() {
+    if (performance.now() < flashUntil) return;
+    var t = titles[0][1];
+    for (var i = 0; i < titles.length; i++) if (count >= titles[i][0]) t = titles[i][1];
+    titleEl.textContent = t;
+  }
+
+  var ctx = null;
+  function pop() {
+    if (muted) return;
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      var t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(520 + Math.random() * 80, t);
+      o.frequency.exponentialRampToValueAtTime(140, t + 0.09);
+      g.gain.setValueAtTime(0.35, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t); o.stop(t + 0.12);
+    } catch (e) {}
+  }
+
+  function bump(x, y) {
+    count++;
+    countEl.textContent = count.toLocaleString('th-TH');
+    var nt = Math.floor(count / 1000);
+    if (nt !== tier) { tier = nt; applySkin(tier, false); }
+    var now = performance.now();
+    stamps.push(now);
+    pop();
+    setTitle();
+    var p = document.createElement('div');
+    p.className = 'plus'; p.textContent = '+1';
+    var r = stage.getBoundingClientRect();
+    p.style.left = (x - r.left - 12) + 'px';
+    p.style.top = (y - r.top - 24) + 'px';
+    stage.appendChild(p);
+    setTimeout(function () { p.remove(); }, 720);
+  }
+
+  stage.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    downPointers++;
+    stage.classList.add('down');
+    bump(e.clientX, e.clientY);
+  });
+  function up() {
+    downPointers = Math.max(0, downPointers - 1);
+    if (downPointers === 0) stage.classList.remove('down');
+  }
+  stage.addEventListener('pointerup', up);
+  stage.addEventListener('pointercancel', up);
+  stage.addEventListener('pointerleave', function () { downPointers = 0; stage.classList.remove('down'); });
+
+  window.addEventListener('keydown', function (e) {
+    if ((e.code === 'Space' || e.code === 'Enter') && !e.repeat) {
+      e.preventDefault();
+      stage.classList.add('down');
+      var r = stage.getBoundingClientRect();
+      bump(r.left + r.width / 2, r.top + r.height / 2);
+    }
+  });
+  window.addEventListener('keyup', function (e) {
+    if (e.code === 'Space' || e.code === 'Enter') stage.classList.remove('down');
+  });
+
+  setInterval(function () {
+    var now = performance.now();
+    while (stamps.length && now - stamps[0] > 1000) stamps.shift();
+    var c = stamps.length;
+    cpsEl.textContent = c;
+    if (c > best) { best = c; bestEl.textContent = best; save('bao-best', best); }
+    save('bao-count', count);
+  }, 250);
+
+  muteBtn.addEventListener('click', function () {
+    muted = !muted;
+    muteBtn.textContent = 'เสียง: ' + (muted ? 'ปิด' : 'เปิด');
+    muteBtn.setAttribute('aria-pressed', String(muted));
+  });
+})();
+</script>
+</body>
+</html>
